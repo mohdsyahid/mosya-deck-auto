@@ -1,0 +1,198 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+  /* One base unit drives every size. */
+  html { font-size: clamp(9px, min(2.3vh, 1.35vw), 24px); }
+  :root { --teal: #14E0C1; --violet: #7C5CFF; --night: #0B0F1A; --red: #FF4D5E; --ink: #fff; --dim: rgba(255,255,255,.58);
+          --faint: rgba(255,255,255,.1); --panel: rgba(255,255,255,.05); --cl: #3B82F6; --eu: #F59E0B; --rel: #EF4444; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; min-height: 100%; color: var(--ink); background: radial-gradient(circle at 85% 0%, #1d2550 0%, var(--night) 60%) fixed;
+               font-family: "Google Sans", Roboto, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  #app { padding: calc(5.2rem + var(--dd-extra, 0px)) 1.6rem 3rem; max-width: 70rem; margin: 0 auto; }
+
+  /* ---------- Tabs + competition chips ---------- */
+  #tabs { display: flex; gap: .3rem; background: var(--panel); border: 1px solid var(--faint); border-radius: 99px; padding: .3rem; width: max-content; max-width: 100%; }
+  .tab { font-size: 1.15rem; font-weight: 700; padding: .55rem 1.3rem; border-radius: 99px; color: var(--dim); white-space: nowrap; display: flex; align-items: center; gap: .4rem; }
+  .tab.on { background: var(--teal); color: var(--night); }
+  .tab .cnt { font-size: .8rem; background: var(--red); color: #fff; border-radius: 99px; padding: .05rem .45rem; }
+  #chips { display: flex; gap: .5rem; margin-top: 1rem; overflow-x: auto; scrollbar-width: none; }
+  #chips::-webkit-scrollbar { display: none; }
+  .chip { font-size: 1rem; padding: .45rem 1rem; border-radius: 99px; border: 1px solid var(--faint); color: var(--dim); white-space: nowrap; }
+  .chip.on { border-color: var(--teal); color: var(--teal); background: rgba(20,224,193,.1); }
+
+  h2 { font-size: 1rem; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 1.6rem 0 .8rem; display: flex; gap: .6rem; align-items: center; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(26rem, 1fr)); gap: .9rem; }
+
+  /* ---------- Match card ---------- */
+  .card { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 1rem;
+          background: var(--panel); border: 1px solid var(--faint); border-radius: 1.4rem; padding: 1rem 1.2rem; }
+  .card.live { border-color: rgba(255,77,94,.5); box-shadow: 0 0 1.4rem rgba(255,77,94,.18); }
+  .team { display: flex; align-items: center; gap: .7rem; min-width: 0; font-size: 1.35rem; font-weight: 700; }
+  .team.away { flex-direction: row-reverse; text-align: right; }
+  .team span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .crest { width: 2.6rem; height: 2.6rem; object-fit: contain; flex: none; }
+  .mid { text-align: center; min-width: 6rem; }
+  .score { font-size: 2.2rem; font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .st { font-size: .95rem; color: var(--dim); font-weight: 700; }
+  .card.live .st { color: var(--red); }
+  .comp { grid-column: 1 / -1; font-size: .9rem; color: var(--dim); margin-top: -.3rem; }
+  .badge { background: var(--red); color: #fff; font-size: .8rem; font-weight: 900; padding: .15rem .55rem; border-radius: 99px; letter-spacing: .08em;
+           animation: pulse 1s infinite alternate; }
+  @keyframes pulse { from { opacity: .55; } to { opacity: 1; box-shadow: 0 0 .8rem var(--red); } }
+  .empty { color: var(--dim); font-size: 1.25rem; padding: 2rem 0; text-align: center; }
+
+  /* ---------- Table ---------- */
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--faint); border-radius: 1.4rem; overflow: hidden; }
+  th { font-size: .9rem; color: var(--dim); font-weight: 600; padding: .8rem .5rem; text-align: center; }
+  td { font-size: 1.2rem; padding: .7rem .5rem; text-align: center; font-variant-numeric: tabular-nums; border-top: 1px solid var(--faint); }
+  td.t { text-align: left; }
+  td.t div { display: flex; align-items: center; gap: .6rem; white-space: nowrap; overflow: hidden; }
+  td.t img { width: 1.8rem; height: 1.8rem; object-fit: contain; }
+  td.pts { font-weight: 900; }
+  td.pos { border-left: .35rem solid transparent; }
+  tr.cl td.pos { border-left-color: var(--cl); } tr.eu td.pos { border-left-color: var(--eu); } tr.rel td.pos { border-left-color: var(--rel); }
+  .legend { display: flex; gap: 1.2rem; margin-top: .8rem; font-size: .9rem; color: var(--dim); flex-wrap: wrap; }
+  .legend i { display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; margin-right: .4rem; }
+
+  #status { position: fixed; bottom: .6rem; right: 1rem; font-size: .85rem; color: var(--dim); background: rgba(11,15,26,.7); padding: .2rem .6rem; border-radius: 99px; }
+  #message { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 700; text-align: center; padding: 0 2rem; }
+
+  /* Narrow / split pane */
+  @media (max-aspect-ratio: 13/10), (max-width: 640px) {
+    html { font-size: clamp(9px, min(2.6vh, 3.2vw), 22px); }
+    .grid { grid-template-columns: 1fr; }
+    .tab { padding: .5rem .9rem; }
+    .col-wdl { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="tabs"></div>
+  <div id="chips"></div>
+  <div id="content"></div>
+</div>
+<div id="status"></div>
+<div id="message"></div>
+<script>
+  // Translated labels sent by the app with every update.
+  var L = {};
+  var tr = function (k, fallback) { return L[k] || fallback; };
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var data = null;
+  var store = (function () { try { return window.localStorage; } catch (e) { return null; } })();
+  var tab = (store && store.getItem('dd_fb_tab')) || 'today';
+  var comp = store && store.getItem('dd_fb_comp');
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function img(u, cls) { return u ? '<img class="' + cls + '" src="' + esc(u) + '" onerror="this.style.visibility=\'hidden\'">' : '<span class="' + cls + '"></span>'; }
+  function save() { try { store && store.setItem('dd_fb_tab', tab); store && comp && store.setItem('dd_fb_comp', comp); } catch (e) {} }
+
+  function card(m) {
+    return '<div class="card' + (m.live ? ' live' : '') + '">' +
+      '<div class="team">' + img(m.homeCrest, 'crest') + '<span>' + esc(m.home) + '</span></div>' +
+      '<div class="mid"><div class="score">' + (m.score ? esc(m.score) : 'vs') + '</div><div class="st">' + esc(m.status) + '</div></div>' +
+      '<div class="team away">' + img(m.awayCrest, 'crest') + '<span>' + esc(m.away) + '</span></div>' +
+      '<div class="comp">' + esc(m.comp) + (m.date ? ' · ' + esc(m.date) : '') + '</div></div>';
+  }
+  function section(title, list, empty, live) {
+    return '<h2>' + (live && list.length ? '<span class="badge">' + esc(tr('live', 'Live')).toUpperCase() + '</span>' : '') + esc(title) + '</h2>' +
+      (list.length ? '<div class="grid">' + list.map(card).join('') + '</div>' : '<div class="empty">' + esc(empty) + '</div>');
+  }
+
+  function renderTabs() {
+    var live = (data.live || []).length;
+    var tabs = [['live', tr('live', 'Live')], ['today', tr('today', 'Today')], ['fixtures', tr('fixtures', 'Fixtures')], ['table', tr('table', 'Table')]];
+    $('tabs').innerHTML = tabs.map(function (t) {
+      return '<div class="tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] +
+        (t[0] === 'live' && live ? '<span class="cnt">' + live + '</span>' : '') + '</div>';
+    }).join('');
+    var comps = data.comps || [];
+    if (!comp || !comps.some(function (c) { return c.code === comp; })) comp = comps.length ? comps[0].code : null;
+    var showChips = tab === 'fixtures' || tab === 'table';
+    $('chips').style.display = showChips && comps.length ? 'flex' : 'none';
+    $('chips').innerHTML = comps.map(function (c) {
+      return '<div class="chip' + (c.code === comp ? ' on' : '') + '" data-comp="' + esc(c.code) + '">' + esc(c.name) + '</div>';
+    }).join('');
+  }
+
+  function renderFixtures() {
+    var list = (data.fixtures || {})[comp];
+    if (list == null) return '<div class="empty">' + esc(tr('loadingFixtures', 'Loading fixtures…')) + '</div>';
+    if (!list.length) return '<div class="empty">' + esc(tr('noFixtures', 'No upcoming fixtures')) + '</div>';
+    var html = '', day = null, group = [];
+    function flush() { if (group.length) html += '<h2>' + esc(day) + '</h2><div class="grid">' + group.map(card).join('') + '</div>'; group = []; }
+    list.forEach(function (m) { if (m.date !== day) { flush(); day = m.date; } group.push(m); });
+    flush();
+    return html;
+  }
+
+  function renderTable() {
+    var groups = (data.tables || {})[comp];
+    if (groups == null) return '<div class="empty">' + esc(tr('loadingFixtures', 'Loading…')) + '</div>';
+    if (!groups.length) return '<div class="empty">' + esc(tr('noTable', 'No table for this competition')) + '</div>';
+    var html = '';
+    groups.forEach(function (g) {
+      var n = g.rows.length;
+      html += (groups.length > 1 ? '<h2>' + esc(g.name) + '</h2>' : '<div style="height:1.2rem"></div>') +
+        '<table><tr><th>#</th><th style="text-align:left">' + esc(tr('team', 'Team')) + '</th><th>P</th><th class="col-wdl">W</th><th class="col-wdl">D</th><th class="col-wdl">L</th><th>GD</th><th>Pts</th></tr>' +
+        g.rows.map(function (r) {
+          var cls = !g.league ? (r.pos <= 2 ? 'cl' : '') : (r.pos <= 4 ? 'cl' : r.pos <= 6 ? 'eu' : (n >= 16 && r.pos > n - 3 ? 'rel' : ''));
+          return '<tr class="' + cls + '"><td class="pos">' + r.pos + '</td><td class="t"><div>' + (r.crest ? '<img src="' + esc(r.crest) + '" onerror="this.style.visibility=\'hidden\'">' : '') +
+            esc(r.team) + '</div></td><td>' + r.p + '</td><td class="col-wdl">' + r.w + '</td><td class="col-wdl">' + r.d + '</td><td class="col-wdl">' + r.l +
+            '</td><td>' + (r.gd > 0 ? '+' : '') + r.gd + '</td><td class="pts">' + r.pts + '</td></tr>';
+        }).join('') + '</table>';
+    });
+    if (groups.length === 1) html += '<div class="legend"><span><i style="background:var(--cl)"></i>' + esc(tr('cl', 'Champions League')) + '</span><span><i style="background:var(--eu)"></i>' + esc(tr('europa', 'Europa')) + '</span><span><i style="background:var(--rel)"></i>' + esc(tr('relegation', 'Relegation')) + '</span></div>';
+    return html;
+  }
+
+  function render() {
+    if (!data) return;
+    renderTabs();
+    var html;
+    if (tab === 'live') html = section(tr('liveNow', 'Live now'), data.live || [], tr('noLive', 'No live matches right now'), true);
+    else if (tab === 'today') html = section(tr('today', 'Today'), data.today || [], tr('noMatchesComp', 'No matches today in your competitions')) +
+      section(tr('myTeams', 'My teams'), data.mine || [], tr('pickTeams', 'Pick favourite teams in AutoDeck settings'));
+    else if (tab === 'fixtures') html = renderFixtures();
+    else html = renderTable();
+    $('content').innerHTML = html;
+  }
+
+  // Car taps arrive as normal clicks.
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-tab]'), c = e.target.closest('[data-comp]');
+    if (t) { tab = t.getAttribute('data-tab'); window.scrollTo(0, 0); }
+    else if (c) { comp = c.getAttribute('data-comp'); window.scrollTo(0, 0); }
+    else return;
+    save();
+    render();
+  });
+
+  window.ddUpdate = function (p) {
+    if (typeof p === 'string') p = JSON.parse(p);
+    if (p && typeof p === 'object' && p.labels) L = p.labels;
+    if (p.status !== 'ok') {
+      $('message').style.display = 'flex';
+      $('message').textContent = p.message || tr('loadingFootball', 'Loading football…');
+      $('app').style.display = 'none';
+      return;
+    }
+    $('message').style.display = 'none';
+    $('app').style.display = 'block';
+    data = p;
+    $('status').textContent = p.updated || '';
+    render();
+  };
+  window.ddRelayout = function () {};
+
+  $('message').style.display = 'flex';
+  $('message').textContent = 'Loading football…';
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,368 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+  /* One base unit drives every size: scales with the smaller screen side. */
+  html { font-size: clamp(9px, min(2.3vh, 1.3vw), 24px); }
+  :root {
+    --accent: #5EF2D6; --violet: #A78BFA; --red: #FF7A85; --green: #6EE7A0;
+    --ink: #FFFFFF; --dim: rgba(255,255,255,.7);
+    --glass: rgba(255,255,255,.12); --edge: rgba(255,255,255,.24);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; color: var(--ink); background: #0B0F1A;
+    font-family: "Google Sans", Roboto, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+
+  /* ---------- Background: photo / song cover / plain ---------- */
+  #plain { position: fixed; inset: 0; background:
+      radial-gradient(circle at 15% 15%, #1E3A5F 0%, transparent 45%),
+      radial-gradient(circle at 85% 85%, #3B2A6B 0%, transparent 50%), #0B0F1A; }
+  #photo, #bg { position: fixed; inset: 0; background: center/cover no-repeat; opacity: 0; transition: opacity 1.2s ease; }
+  #bg { inset: -8%; filter: blur(42px) saturate(1.4); }
+  body.mode-photo #photo, body.mode-upload #photo { opacity: 1; }
+  body.mode-cover.art #bg { opacity: 1; }
+  #dim { position: fixed; inset: 0; background: #000; opacity: .35; transition: opacity .6s; }
+  /* Darken only the edges where text sits; the middle stays clear. */
+  #shade { position: fixed; inset: 0; background:
+      linear-gradient(180deg, rgba(0,0,0,.45) 0%, transparent 32%, transparent 62%, rgba(0,0,0,.5) 100%); }
+  #credit { position: fixed; right: 1.4rem; bottom: .3rem; font-size: .66rem; color: rgba(255,255,255,.5); }
+
+  .glass { background: var(--glass); border: 1px solid var(--edge);
+           -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%);
+           box-shadow: 0 .6rem 2rem rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.2); }
+  .dim { color: var(--dim); }
+  .ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shadow { text-shadow: 0 .1rem 1.2rem rgba(0,0,0,.45); }
+
+  #app { position: relative; height: 100%; padding: calc(5.4rem + var(--dd-extra, 0px)) 2.2rem 1.6rem; display: flex; flex-direction: column; }
+  #top { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; }
+
+  /* Clock: no card, floating */
+  #time { font-size: 7rem; font-weight: 200; line-height: .95; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  #date { font-size: 1.25rem; margin-top: .5rem; font-weight: 400; }
+
+  /* Chips (top-right) */
+  /* Starts below Android Auto's floating button (top-right corner). */
+  #chips { display: flex; flex-direction: column; align-items: flex-end; gap: .6rem; max-width: 46%; margin-top: 3.9rem; }
+  .chip { display: flex; align-items: center; gap: .65rem; padding: .55rem 1rem .55rem .8rem; border-radius: 99px;
+          font-size: 1.05rem; white-space: nowrap; max-width: 100%; }
+  .chip .ic { font-size: 1.35rem; line-height: 1; }
+  .chip b { font-weight: 600; }
+  .chip .v { font-variant-numeric: tabular-nums; }
+  .chip.hide { display: none; }
+  #scoreChip { background: rgba(255,122,133,.22); border-color: rgba(255,122,133,.4); }
+
+  /* Open space so the picture shows */
+  #space { flex: 1; }
+
+  /* Dock (bottom) */
+  #dock { display: flex; align-items: center; gap: 1.2rem; padding: .7rem .9rem .7rem .7rem; border-radius: 1.6rem; }
+  #cover { width: 4.6rem; height: 4.6rem; flex: none; border-radius: 1rem; background: rgba(255,255,255,.1) center/cover no-repeat;
+           display: grid; place-items: center; font-size: 1.8rem; color: var(--dim); }
+  #music { flex: 1; min-width: 0; }
+  #songRow { display: flex; gap: .5rem; align-items: baseline; font-size: .95rem; }
+  #song { font-weight: 600; min-width: 0; flex: 0 1 auto; } #artist { color: var(--dim); min-width: 0; flex: 1 1 0; }
+  #line { font-size: 1.45rem; font-weight: 500; margin-top: .15rem; text-shadow: 0 0 1.2rem rgba(94,242,214,.45); }
+  #progress { margin-top: .45rem; height: .2rem; border-radius: 99px; background: rgba(255,255,255,.18); overflow: hidden; }
+  #progressFill { height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--violet)); }
+  #controls { display: flex; align-items: center; gap: .5rem; }
+  .ctl { width: 3.1rem; height: 3.1rem; border-radius: 50%; border: 1px solid var(--edge); background: rgba(255,255,255,.1);
+         display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .ctl svg { width: 1.6rem; height: 1.6rem; fill: #fff; }
+  .ctl.play { width: 3.8rem; height: 3.8rem; background: #fff; border-color: #fff; }
+  .ctl.play svg { width: 2rem; height: 2rem; fill: #0B0F1A; }
+  .ctl:active { transform: scale(.92); }
+  .sep { width: 1px; align-self: stretch; margin: .4rem 0; background: rgba(255,255,255,.18); }
+  #speedBox { text-align: center; min-width: 5rem; }
+  #speed { font-size: 2.6rem; font-weight: 300; line-height: 1; font-variant-numeric: tabular-nums; }
+  #speedUnit { font-size: .78rem; color: var(--dim); margin-top: .15rem; }
+  #apps { display: flex; gap: .55rem; }
+  .app { width: 3.4rem; height: 3.4rem; border-radius: 1rem; border: 1px solid var(--edge); background: rgba(255,255,255,.1);
+         display: grid; place-items: center; cursor: pointer; }
+  .app:active { background: rgba(255,255,255,.26); }
+  .app img { width: 2.2rem; height: 2.2rem; border-radius: .55rem; }
+
+  /* Smaller head units / split screen */
+  @media (max-width: 1000px) {
+    #app { padding: calc(5.9rem + var(--dd-extra, 0px)) 1.4rem 1.2rem; }
+    #time { font-size: 5.2rem; }
+    #chips { max-width: 55%; }
+    #fuelChip { display: none; }
+  }
+  @media (max-width: 700px), (max-aspect-ratio: 5/4) {
+    html { font-size: clamp(8px, min(2.6vw, 2.9vh), 20px); }
+    html, body { overflow-y: auto; }
+    #app { min-height: 100%; height: auto; padding: 4.8rem 1rem 1rem; }
+    #top { flex-direction: column; gap: .7rem; }
+    #time { font-size: 4.6rem; }
+    #date { font-size: 1rem; margin-top: .3rem; }
+    /* Split screen: no floating button here, chips go in a row under the clock. */
+    #chips { flex-direction: row; flex-wrap: wrap; align-items: flex-start; max-width: 100%; margin-top: 0; gap: .45rem; }
+    .chip { font-size: .92rem; padding: .4rem .8rem .4rem .6rem; }
+    #space { min-height: 1rem; }
+    #dock { gap: .8rem; padding: .55rem .7rem .55rem .55rem; border-radius: 1.3rem; }
+    #cover { width: 3.6rem; height: 3.6rem; }
+    #line { font-size: 1.2rem; }
+    #songRow { font-size: .85rem; }
+    #speedBox { min-width: 3.4rem; }
+    #speed { font-size: 2rem; }
+    .app { width: 2.8rem; height: 2.8rem; border-radius: .8rem; }
+    .app img { width: 1.8rem; height: 1.8rem; }
+    .sep { display: none; }
+    .ctl { width: 2.6rem; height: 2.6rem; }
+    .ctl.play { width: 3.1rem; height: 3.1rem; }
+  }
+</style>
+</head>
+<body>
+<div id="plain"></div><div id="photo"></div><div id="bg"></div><div id="dim"></div><div id="shade"></div>
+<div id="credit"></div>
+
+<div id="app">
+  <div id="top">
+    <div class="shadow">
+      <div id="time">--:--</div>
+      <div id="date"></div>
+    </div>
+    <div id="chips">
+      <div class="chip glass" id="prayerChip"><span class="ic">🕌</span><span><b id="pName">–</b> <span id="pTime" class="dim"></span></span><span class="v" id="pCount"></span></div>
+      <div class="chip glass" id="weatherChip"><span class="ic" id="wIcon">☁️</span><b id="wTemp"></b><span id="wDesc" class="dim ellipsis"></span></div>
+      <div class="chip glass hide" id="scoreChip"><span class="ic">⚽</span><span id="scoreText" class="ellipsis"></span></div>
+      <div class="chip glass" id="fuelChip"><span class="ic">⛽</span><span id="fuelText" class="ellipsis dim">Fuel prices…</span></div>
+    </div>
+  </div>
+
+  <div id="space"></div>
+
+  <div id="dock" class="glass">
+    <div id="cover">♪</div>
+    <div id="music">
+      <div id="songRow"><span id="song" class="ellipsis">Waiting for music…</span><span id="artist" class="ellipsis"></span></div>
+      <div id="line" class="ellipsis"></div>
+      <div id="progress"><div id="progressFill"></div></div>
+    </div>
+    <div id="controls">
+      <button class="ctl" id="ctlPrev" data-media="prev" aria-label="Previous"></button>
+      <button class="ctl play" id="ctlToggle" data-media="toggle" aria-label="Play or pause"></button>
+      <button class="ctl" id="ctlNext" data-media="next" aria-label="Next"></button>
+    </div>
+    <div class="sep"></div>
+    <div id="speedBox"><div id="speed">–</div><div id="speedUnit">km/h</div></div>
+    <div class="sep"></div>
+    <div id="apps">
+      <div class="app" data-nav="youtube"><img src="dd_youtube.png" alt="YouTube"></div>
+      <div class="app" data-nav="rtm"><img src="dd_rtm.png" alt="RTM Klik"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  // Translated labels sent by the app with every update (labels.<key>).
+  var L = {}, LANG = 'en';
+  var tr = function (k, fallback) { return L[k] || fallback; };
+
+  var state = { lines: [], basePos: 0, baseAt: 0, playing: false, duration: 0, idx: -2, nextEpoch: 0, songKey: '' };
+
+  // ---- Weather (WMO codes) ----
+  function weatherOf(code, isDay) {
+    if (code === 0) return [isDay ? '☀️' : '🌙', tr('clear', 'Clear')];
+    if (code <= 2) return [isDay ? '🌤️' : '☁️', tr('partlyCloudy', 'Partly cloudy')];
+    if (code === 3) return ['☁️', tr('cloudy', 'Cloudy')];
+    if (code === 45 || code === 48) return ['🌫️', tr('hazy', 'Hazy')];
+    if (code >= 51 && code <= 57) return ['🌦️', tr('drizzle', 'Drizzle')];
+    if (code >= 61 && code <= 67) return ['🌧️', tr('rain', 'Rain')];
+    if (code >= 80 && code <= 82) return ['🌦️', tr('showers', 'Showers')];
+    if (code >= 95) return ['⛈️', tr('thunder', 'Thunderstorm')];
+    return ['🌥️', tr('cloudy', 'Cloudy')];
+  }
+
+  // ---- Clock + prayer countdown (local, every second) ----
+  function clock() {
+    var d = new Date();
+    $('time').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    var date = DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
+    if (LANG !== 'en') {
+      try { date = d.toLocaleDateString(LANG + '-MY', { weekday: 'long', day: 'numeric', month: 'short' }); } catch (_) {}
+    }
+    $('date').textContent = date;
+    if (state.nextEpoch) {
+      var left = Math.max(0, Math.floor((state.nextEpoch - Date.now()) / 1000));
+      var h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60), s = left % 60;
+      $('pCount').textContent = '· ' + (h ? h + ':' + pad(m) : m) + ':' + pad(s);
+    }
+  }
+
+  // ---- Lyric line (same clock idea as the Lyrics view) ----
+  var LEAD = 200;
+  function position() {
+    var p = state.basePos + (state.playing ? performance.now() - state.baseAt : 0);
+    if (state.duration > 0) p = Math.min(p, state.duration);
+    return Math.max(0, p);
+  }
+  function findIndex(pos) {
+    var lo = 0, hi = state.lines.length - 1, found = -1;
+    while (lo <= hi) { var mid = (lo + hi) >> 1; if (state.lines[mid][0] <= pos) { found = mid; lo = mid + 1; } else hi = mid - 1; }
+    return found;
+  }
+  function frame() {
+    var pos = position();
+    if (state.duration > 0) $('progressFill').style.width = (100 * pos / state.duration).toFixed(2) + '%';
+    if (state.lines.length) {
+      var i = findIndex(pos + LEAD);
+      if (i !== state.idx) {
+        state.idx = i;
+        var cur = i >= 0 ? (state.lines[i][1] || '').trim() : '';
+        $('line').textContent = cur || '♪';
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+
+  var ICON = {
+    prev: '<svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM9.5 12l8.5 6V6z"/></svg>',
+    next: '<svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>',
+    play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>'
+  };
+  var isPlaying = false;
+  function setPlayIcon(playing) {
+    isPlaying = playing;
+    var b = document.getElementById('ctlToggle');
+    if (b) b.innerHTML = playing ? ICON.pause : ICON.play;
+  }
+  function initControls() {
+    document.getElementById('ctlPrev').innerHTML = ICON.prev;
+    document.getElementById('ctlNext').innerHTML = ICON.next;
+    setPlayIcon(false);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-media]'), function (b) {
+      b.addEventListener('click', function () {
+        var a = b.getAttribute('data-media');
+        if (a === 'toggle') setPlayIcon(!isPlaying);   // flip now; the app's state follows
+        if (window.AutoDeck && window.AutoDeck.media) window.AutoDeck.media(a);
+      });
+    });
+  }
+
+  function setSpeed(kmh, gps) {
+    $('speed').textContent = gps && kmh != null ? kmh : '–';
+    $('speedUnit').textContent = gps ? 'km/h' : tr('noGps', 'no GPS');
+  }
+
+  function renderMusic(m) {
+    if (!m) return;
+    var waiting = !m.title;
+    $('song').textContent = waiting ? tr('waiting', 'Waiting for music…') : m.title;
+    $('artist').textContent = m.artist || '';
+    if ('art' in m) {
+      var art = m.art ? 'url("' + m.art + '")' : '';
+      $('cover').style.backgroundImage = art;
+      $('cover').textContent = m.art ? '' : '♪';
+      $('bg').style.backgroundImage = art;
+      document.body.classList.toggle('art', !!m.art);
+    }
+    var transit = m.sentAtMs ? Math.min(Math.max(0, Date.now() - m.sentAtMs), 1500) : 0;
+    state.basePos = (m.positionMs || 0) + (m.playing ? transit : 0);
+    state.baseAt = performance.now();
+    state.playing = !!m.playing;
+    setPlayIcon(state.playing);
+    state.duration = m.durationMs || 0;
+    var key = (m.title || '') + '|' + (m.lines ? m.lines.length : 0);
+    if (key !== state.songKey) {
+      state.songKey = key;
+      state.lines = m.lines || [];
+      state.idx = -2;
+      if (!state.lines.length) {
+        $('line').textContent = waiting ? (m.app ? '' : tr('playSomething', 'Play something in Spotify')) :
+          ({ loading: tr('findingLyrics', 'Finding lyrics…'), notFound: m.playing ? '♪' : tr('paused', 'Paused'),
+             instrumental: tr('instrumental', 'Instrumental'), offline: tr('offline', 'Offline') }[m.status] || '♪');
+      }
+    }
+  }
+
+  function renderPrayer(p) {
+    // Prayer hidden in Settings (or none yet): no chip.
+    $('prayerChip').classList.toggle('hide', !(p && p.next));
+    var next = p && p.next;
+    if (!next) { state.nextEpoch = 0; return; }
+    $('pName').textContent = next.name;
+    $('pTime').textContent = next.time;
+    state.nextEpoch = next.epochMs;
+  }
+
+  function renderWeather(w) {
+    if (!w) return;
+    var wi = weatherOf(w.code, w.isDay);
+    $('wIcon').textContent = w.rain ? '☔' : wi[0];
+    $('wTemp').textContent = Math.round(w.temp) + '°';
+    $('wDesc').textContent = w.rain || wi[1];
+  }
+
+  function renderScores(label, list) {
+    var live = label === 'Live' && list && list.length;
+    $('scoreChip').classList.toggle('hide', !live);
+    if (!live) return;
+    var m = list[0];
+    $('scoreText').textContent = m.home + ' ' + (m.score || 'vs') + ' ' + m.away + (m.status ? ' · ' + m.status : '') +
+      (list.length > 1 ? '  +' + (list.length - 1) : '');
+  }
+
+  function renderFuel(f) {
+    if (!f || !f.items) return;
+    $('fuelText').textContent = f.items.filter(function (i) { return i.label !== 'RON95'; }).map(function (i) {
+      return i.label.replace('RON95 BUDI', 'RON95') + ' ' + Number(i.price).toFixed(2);
+    }).join('  ·  ');
+  }
+
+  var bgUrl = null;
+  function renderBg(b) {
+    b = b || { mode: 'cover', dim: .35 };
+    document.body.className = document.body.className.replace(/\bmode-\w+/g, '').trim() + ' mode-' + b.mode;
+    $('dim').style.opacity = b.mode === 'plain' ? 0 : (b.dim == null ? .35 : b.dim);
+    if (b.url && b.url !== bgUrl) {
+      bgUrl = b.url;
+      // Swap only once loaded, so it never flashes empty.
+      var img = new Image();
+      img.onload = function () { if (bgUrl === b.url) $('photo').style.backgroundImage = 'url("' + b.url + '")'; };
+      img.src = b.url;
+    }
+    $('credit').textContent = b.credit || '';
+  }
+
+  /** Called from Kotlin with the JSON payload built in Dart. */
+  window.ddUpdate = function (p) {
+    if (typeof p === 'string') p = JSON.parse(p);
+    setSpeed(p.speed, p.gps);
+    if (p.speedOnly) return;
+    if (p.labels) L = p.labels;
+    if (p.lang) LANG = p.lang;
+    renderBg(p.bg);
+    renderMusic(p.music);
+    renderPrayer(p.prayer);
+    renderWeather(p.weather);
+    renderScores(p.scoresLabel || 'Today', p.scores);
+    if (p.fuel == null) $('fuelText').textContent = tr('fuelLoading', 'Fuel prices…');
+    renderFuel(p.fuel);
+    clock();
+  };
+  window.ddRelayout = function () { state.idx = -2; };
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-nav]'), function (b) {
+    b.addEventListener('click', function () { if (window.AutoDeck) window.AutoDeck.nav(b.getAttribute('data-nav')); });
+  });
+
+  initControls();
+  clock();
+  setInterval(clock, 1000);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,249 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+  /* One base unit drives every size: scales with the smaller screen side. */
+  html { font-size: clamp(9px, min(2.3vh, 1.35vw), 26px); }
+  :root {
+    --accent: #14E0C1; --accent-soft: rgba(20,224,193,.16); --violet: #7C5CFF;
+    --ink: #F7F3EC; --dim: rgba(247,243,236,.6); --faint: rgba(247,243,236,.16);
+    --panel: rgba(12,12,16,.42);
+    --serif: "Noto Serif", Georgia, serif;
+    --mono: "Roboto Mono", "Noto Sans Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden; color: var(--ink); background: #0d0c10;
+    font-family: "Google Sans", Roboto, system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Background ---------- */
+  #scene { position: fixed; inset: 0; overflow: hidden; background: radial-gradient(circle at 30% 20%, #16213D, #0B0F1A 70%); }
+  #photo { position: absolute; inset: -4%; background: center/cover no-repeat; opacity: 0; transition: opacity 2s ease;
+           filter: brightness(.7) saturate(.9); animation: drift 80s ease-in-out infinite alternate; }
+  @keyframes drift { from { transform: scale(1); } to { transform: scale(1.07) translate(-1%, -1%); } }
+  body.photo #photo { opacity: 1; }
+  #shade { position: absolute; inset: 0;
+           background: linear-gradient(100deg, rgba(10,9,13,.82) 0%, rgba(10,9,13,.45) 48%, rgba(10,9,13,.2) 70%, rgba(10,9,13,.55) 100%),
+                       linear-gradient(transparent 60%, rgba(10,9,13,.65)); }
+  #gloom { position: absolute; inset: 0; background: rgba(24,28,38,.55); opacity: 0; transition: opacity 3s; }
+  #rain { position: absolute; inset: 0; opacity: 0; transition: opacity 2s ease; }
+  .drop { position: absolute; top: -10%; width: 1.5px; height: 6vh; background: linear-gradient(transparent, rgba(215,225,240,.6)); animation: fall linear infinite; }
+  @keyframes fall { to { transform: translateY(125vh) translateX(-4vh); } }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; }
+  #flash.on { animation: flash 7s infinite; }
+  @keyframes flash { 0%, 93%, 100% { opacity: 0; } 94% { opacity: .5; } 95% { opacity: .05; } 96% { opacity: .35; } }
+
+  /* ---------- Layout: wide (default) ---------- */
+  #app { position: relative; height: 100%; display: grid; grid-template-columns: 1.15fr .85fr; gap: 3rem;
+         align-items: center; padding: calc(4.5rem + var(--dd-extra, 0px)) 4rem 3rem; }
+
+  #hero { min-width: 0; }
+  #meta { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: 1rem; color: var(--dim); letter-spacing: .04em; }
+  #meta .zone { color: var(--ink); font-weight: 600; }
+  #label { margin-top: 1.6rem; font-size: .95rem; letter-spacing: .28em; text-transform: uppercase; color: var(--accent); }
+  #name { font-family: var(--serif); font-size: 5.6rem; line-height: 1.05; font-weight: 500; margin-top: .3rem; }
+  #at { font-size: 1.3rem; color: var(--dim); margin-top: .2rem; }
+  #at b { color: var(--ink); font-weight: 700; }
+  #countdown { font-family: var(--mono); font-size: 4.4rem; font-weight: 600; letter-spacing: .02em; margin-top: 1.4rem;
+               font-variant-numeric: tabular-nums; line-height: 1; }
+  #countdown .u { font-size: 1.3rem; font-weight: 500; color: var(--dim); margin: 0 .5rem 0 .15rem; letter-spacing: 0; }
+  #bar { margin-top: 1.4rem; height: .45rem; border-radius: 99px; background: var(--faint); overflow: hidden; max-width: 28rem; }
+  #barFill { height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--violet));
+             box-shadow: 0 0 1rem rgba(20,224,193,.55); transition: width 1s linear; }
+  #barText { margin-top: .6rem; font-size: .95rem; color: var(--dim); }
+
+  #list { background: var(--panel); border: 1px solid var(--faint); border-radius: 1.6rem; padding: .8rem;
+          backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); min-width: 0; }
+  .row { display: flex; align-items: baseline; gap: .8rem; padding: .75rem 1rem; border-radius: 1rem; }
+  .row .n { flex: 1; font-size: 1.45rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .t { font-family: var(--mono); font-size: 1.55rem; font-weight: 600; white-space: nowrap; }
+  .row .t small { font-size: .85rem; color: var(--dim); margin-left: .25rem; }
+  .row.marker .n, .row.marker .t { color: var(--dim); font-weight: 500; font-size: 1.25rem; }
+  .row.past { opacity: .45; }
+  .row.cur { background: var(--accent-soft); box-shadow: inset 0 0 0 1px rgba(20,224,193,.5); }
+  .row.cur .n { color: var(--accent); }
+  .row.next { box-shadow: inset 0 0 0 1px var(--faint); }
+  .tag { font-size: .75rem; font-weight: 800; letter-spacing: .12em; padding: .2rem .55rem; border-radius: 99px; align-self: center; }
+  .row.cur .tag { background: var(--accent); color: #0B0F1A; }
+  .row.next .tag { background: var(--faint); color: var(--ink); }
+
+  #weather { position: fixed; top: 1.3rem; right: 6.5rem; display: none; align-items: center; gap: .5rem;
+             font-size: 1.05rem; color: var(--dim); background: var(--panel); border: 1px solid var(--faint);
+             padding: .35rem .9rem; border-radius: 99px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  #weather b { color: var(--ink); }
+  #credit { position: fixed; left: 1rem; bottom: .4rem; font-size: .75rem; color: rgba(247,243,236,.45); display: none; }
+  body.photo #credit { display: block; }
+  #message { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; font-family: var(--serif); font-size: 2.6rem; }
+
+  /* ---------- Narrow / split pane: stack, chips instead of the list ---------- */
+  @media (max-aspect-ratio: 13/10), (max-width: 640px) {
+    html { font-size: clamp(9px, min(2.6vh, 3.2vw), 24px); }
+    #app { grid-template-columns: 1fr; grid-template-rows: auto auto; align-content: center; gap: 1.6rem; padding: calc(4rem + var(--dd-extra, 0px)) 1.6rem 2rem; }
+    #name { font-size: 4.2rem; } #countdown { font-size: 3.2rem; } #bar { max-width: none; }
+    #list { display: flex; flex-wrap: wrap; gap: .5rem; padding: .6rem; }
+    .row { flex: 1 1 calc(33% - .5rem); flex-direction: column; align-items: flex-start; gap: .1rem; padding: .55rem .7rem; }
+    .row .n { font-size: 1rem; } .row .t { font-size: 1.25rem; }
+    .row.marker, .row .tag { display: none; }
+    #weather { right: 1rem; }
+  }
+
+  /* ---------- Very short screens: hero only ---------- */
+  @media (max-height: 300px) {
+    #list, #bar, #barText { display: none; }
+    #app { grid-template-columns: 1fr; padding: calc(2.5rem + var(--dd-extra, 0px)) 1.5rem 1rem; }
+  }
+</style>
+</head>
+<body>
+<div id="scene">
+  <div id="photo"></div>
+  <div id="shade"></div>
+  <div id="gloom"></div>
+  <div id="rain"></div>
+  <div id="flash"></div>
+</div>
+
+<div id="app">
+  <div id="hero">
+    <div id="meta"></div>
+    <div id="label">Next prayer</div>
+    <div id="name">—</div>
+    <div id="at"></div>
+    <div id="countdown"></div>
+    <div id="bar"><div id="barFill"></div></div>
+    <div id="barText"></div>
+  </div>
+  <div id="list"></div>
+</div>
+<div id="weather"><span class="w-ico"></span><b class="w-temp"></b><span class="w-label"></span></div>
+<div id="credit"></div>
+<div id="message"></div>
+
+<script>
+  // Translated labels sent by the app with every update.
+  var L = {};
+  var tr = function (k, fallback) { return L[k] || fallback; };
+  var WX = { clear: 'clear', few: 'mostlyClear', some: 'partlyCloudy', overcast: 'cloudy', fog: 'hazy', drizzle: 'drizzle', rain: 'rain', heavy: 'heavyRain', storm: 'thunder' };
+(function () {
+  var data = null, weatherCode = null, photoUrl = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function clock12(ms, parts) {
+    var d = new Date(ms), h = d.getHours(), m = d.getMinutes(), ap = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return parts ? [h + ':' + pad(m), ap] : h + ':' + pad(m) + ' ' + ap;
+  }
+  /** "7h 22m 05s" style countdown with small unit letters. */
+  function countdownHtml(ms) {
+    if (ms < 0) ms = 0;
+    var s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    var u = function (v, l) { return v + '<span class="u">' + l + '</span>'; };
+    return (h > 0 ? u(h, 'h') : '') + u(pad(m), 'm') + u(pad(sec), 's');
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function byName(n) { return (data.times || []).filter(function (r) { return r.name === n; })[0]; }
+
+  function render() {
+    if (!data) return;
+    var now = Date.now(), next = data.next, cur = data.current;
+    var sy = byName('Syuruk');
+    if (cur && cur.name === 'Subuh' && sy && now >= sy.epochMs) cur = null; // Subuh ends at sunrise
+
+    $('name').textContent = next ? next.name : '—';
+    $('at').innerHTML = next ? 'at <b>' + clock12(next.epochMs) + '</b>' : '';
+    $('countdown').innerHTML = next ? countdownHtml(next.epochMs - now) : '';
+
+    var p = 0, from = cur || (sy && now >= sy.epochMs ? sy : null);
+    if (next && from && next.epochMs > from.epochMs) p = Math.min(1, Math.max(0, (now - from.epochMs) / (next.epochMs - from.epochMs)));
+    $('barFill').style.width = (p * 100).toFixed(1) + '%';
+    $('barText').textContent = from && next ? tr('since', 'Since {0}').replace('{0}', from.name) + ' · ' + Math.round(p * 100) + '% → ' + next.name : '';
+
+    var html = '';
+    (data.times || []).forEach(function (r) {
+      var isCur = cur && r.epochMs === cur.epochMs, isNext = next && r.epochMs === next.epochMs;
+      var c = clock12(r.epochMs, true);
+      var cls = 'row' + (r.obligatory ? '' : ' marker') + (isCur ? ' cur' : isNext ? ' next' : (r.epochMs <= now ? ' past' : ''));
+      html += '<div class="' + cls + '"><span class="n">' + esc(r.name) + '</span>' +
+        (isCur ? '<span class="tag">' + tr('now', 'Now').toUpperCase() + '</span>' : isNext ? '<span class="tag">' + tr('nextCaps', 'NEXT') + '</span>' : '') +
+        '<span class="t">' + c[0] + '<small>' + c[1] + '</small></span></div>';
+    });
+    $('list').innerHTML = html;
+  }
+
+  // ---------- weather ----------
+  var WEATHER = [
+    [[0], '☀️', 'Clear', 'clear'], [[1], '🌤️', 'Mostly clear', 'few'], [[2], '⛅', 'Partly cloudy', 'some'],
+    [[3], '☁️', 'Cloudy', 'overcast'], [[45, 48], '🌫️', 'Hazy', 'fog'],
+    [[51, 53, 55, 56, 57], '🌦️', 'Drizzle', 'drizzle'], [[61, 63, 66, 80, 81], '🌧️', 'Rain', 'rain'],
+    [[65, 67, 82], '🌧️', 'Heavy rain', 'heavy'], [[95, 96, 99], '⛈️', 'Thunderstorm', 'storm']
+  ];
+  function makeRain(heavy) {
+    var html = '', n = heavy ? 120 : 60;
+    for (var i = 0; i < n; i++) {
+      html += '<span class="drop" style="left:' + (Math.random() * 110).toFixed(1) + '%;animation-duration:' + (0.5 + Math.random() * 0.4).toFixed(2) +
+        's;animation-delay:-' + Math.random().toFixed(2) + 's"></span>';
+    }
+    $('rain').innerHTML = html;
+  }
+  function applyWeather(w) {
+    if (!w) { $('weather').style.display = 'none'; return; }
+    var e = WEATHER.filter(function (x) { return x[0].indexOf(w.code) >= 0; })[0] || WEATHER[2];
+    $('weather').style.display = 'flex';
+    $('weather').querySelector('.w-ico').textContent = !w.isDay && e[3] === 'clear' ? '🌙' : e[1];
+    $('weather').querySelector('.w-temp').textContent = Math.round(w.temp) + '°';
+    $('weather').querySelector('.w-label').textContent = tr(WX[e[3]], e[2]);
+    if (w.code === weatherCode) return;
+    weatherCode = w.code;
+    var wet = ['drizzle', 'rain', 'heavy', 'storm'].indexOf(e[3]) >= 0;
+    if (wet) makeRain(e[3] === 'heavy' || e[3] === 'storm');
+    $('rain').style.opacity = wet ? 1 : 0;
+    $('flash').className = e[3] === 'storm' ? 'on' : '';
+    $('gloom').style.opacity = e[3] === 'storm' || e[3] === 'heavy' ? 1 : (e[3] === 'rain' ? .6 : 0);
+  }
+
+  // ---------- photo ----------
+  function applyPhoto(photo) {
+    if (!photo || !photo.url) return;
+    $('credit').textContent = photo.credit || '';
+    if (photo.url === photoUrl) return;
+    photoUrl = photo.url;
+    var img = new Image();
+    img.onload = function () {
+      if (photoUrl !== photo.url) return;
+      $('photo').style.backgroundImage = 'url("' + photo.url + '")';
+      document.body.classList.add('photo');
+    };
+    img.src = photo.url;
+  }
+
+  window.ddUpdate = function (p) {
+    if (typeof p === 'string') p = JSON.parse(p);
+    if (p && typeof p === 'object' && p.labels) { L = p.labels; $('label').textContent = tr('nextPrayer', 'Next prayer'); }
+    if (p.status !== 'ok') {
+      $('message').style.display = 'flex';
+      $('message').textContent = p.message || tr('loadingPrayer', 'Loading prayer times…');
+      $('app').style.visibility = 'hidden';
+      return;
+    }
+    $('message').style.display = 'none';
+    $('app').style.visibility = 'visible';
+    data = p;
+    $('meta').innerHTML = '<span class="zone">' + esc(p.zone || '') + '</span><span>' + esc(p.date || '') + '</span>' +
+      (p.hijri ? '<span>' + esc(p.hijri) + ' H</span>' : '');
+    applyWeather(p.weather);
+    applyPhoto(p.photo);
+    render();
+  };
+  window.ddRelayout = render;
+
+  setInterval(render, 1000);
+  $('message').style.display = 'flex';
+  $('message').textContent = 'Loading prayer times…';
+})();
+</script>
+</body>
+</html>
